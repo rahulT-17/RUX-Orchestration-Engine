@@ -7,24 +7,41 @@ import httpx
 ## Service layer isolates LM logic from API routes.
 # Makes model provider swappable and easier to test.
 class LLMService :
-    def __init__(self, base_url:str):
+    def __init__(self, base_url, model):
           self.base_url = base_url
-    
-    async def generate(self,system_prompt:str , user_message:str) -> str :
+          self.model = model
+      
+    async def generate(self, system_prompt, user_message=None) :
+      messages = []
+
+      if user_message :
+        messages.append({"role" : "system", "content": system_prompt})
+        messages.append({"role" : "user", "content": user_message})
+
+      else :
+        messages.append({"role" : "user", "content": system_prompt})
+
       payload = {
-        "model" : "local-model",
-        "messages" : [
-            {"role" : "system", "content": system_prompt},
-            {"role" : "user", "content":user_message}
-        ],
+        "model" : self.model,
+        "messages" : messages,
         "temperature" : 0.4,
         "max_tokens" : 300
     }
       async with httpx.AsyncClient(timeout=120.0) as client :
         response = await client.post(
             f"{self.base_url}/v1/chat/completions",
-            json=payload,
+            json=payload
         )
-        response.raise_for_status()
+
+        response.raise_for_status() 
         data = response.json()
+
+        print("LM Studio response:", data) # Debugging line to check the raw response from LM Studios
         return data["choices"][0]["message"]["content"].strip()
+      
+    async def converse(self, user_message: str) -> str:
+      return await self.generate(
+          system_prompt="""You are RUX, a helpful AI personal assistant.
+          Answer conversationally and helpfully. Never return JSON.""",
+          user_message=user_message
+      )

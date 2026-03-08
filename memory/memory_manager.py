@@ -57,6 +57,16 @@ class MemoryManager :
                 ON DELETE CASCADE
                                  ) """ )
             
+            # Adding Budgets table in memory for the core to manage monthly budget for the user
+            await self.db.execute( """
+            CREATE TABLE IF NOT EXISTS budgets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            amount REAL NOT NULL,
+            start_date TEXT NOT NULL,  -- yyyy-mm-dd
+            end_date TEXT NOT NULL
+            ) """   )
+            
             await self.db.commit()
 
             #---- USERS -----#
@@ -108,11 +118,13 @@ class MemoryManager :
         return await cursor.fetchall()
 
     async def delete_project(self, project_id: int):
-        await self.db.execute(
+        cursor = await self.db.execute(
             "DELETE FROM projects WHERE project_id = ?",
             (project_id,)
         )
         await self.db.commit()
+        return cursor.rowcount
+    
 
     #== confirmation table management for high risk actions ==#
     async def create_confirmation(self, user_id: str, action: str, parameters: dict):
@@ -150,6 +162,8 @@ class MemoryManager :
         )
         await self.db.commit()
 
+        #------ EXPENSE FUNCTION -----#
+
     # function for logging expenses in the expenses table in memory when the user asks the agent to create an expense :
     async def log_expense(self, user_id: str, amount: float, category: str , note: str | None = None):
         cursor = await self.db.execute(
@@ -178,6 +192,75 @@ class MemoryManager :
         result = await cursor.fetchone()
 
         return result[0] if result[0] else 0.0   # this LOC will return 0.0 if there are no expenses logged for the given criteria instead of returning None
+    
+
+    async def create_budget(self, user_id: str, amount: float, start_date: str, end_date: str) :
+
+         # Checking for overlapping dates :
+        cursor = await self.db.execute(
+              """
+            SELECT 1 from budgets
+            WHERE user_id = ?
+            AND NOT (end_date < ? OR start_date > ?)
+            LIMIT 1
+            """,
+            (user_id,start_date,end_date)
+         )
+        existing = await cursor.fetchone()
+
+        if existing :
+            return False # Overlap exists
+    
+        await self.db.execute (
+             """
+            INSERT INTO budgets (user_id,amount,start_date,end_date)
+            VALUES (?,?,?,?)""",
+            (user_id,amount,start_date,end_date)
+        )
+        await self.db.commit()
+        
+        return True 
+    
+    # Integrating Active Budget :
+    async def  get_active_budget(self,user_id:str, today:str) :
+        cursor = await self.db.execute (
+             """
+            SELECT * FROM budgets
+            WHERE user_id = ?
+            AND start_date <= ?
+            AND end_date >= ?
+            ORDER BY start_date DESC 
+            LIMIT 1""",
+            (user_id,today,today)
+        )
+        return await cursor.fetchone()
+    
+    # Inserting a function to get total between dates:
+    async def get_total_between(self, user_id:str, start_date: str, end_date:str) :
+        cursor = await self.db.execute(
+              """
+            SELECT SUM(amount)
+            FROM expenses
+            WHERE user_id = ?
+            AND DATE(created_at) BETWEEN DATE(?) AND DATE(?)""",
+            (user_id, start_date, end_date)
+         )
+        row = await cursor.fetchone()
+        return row[0] if row[0] is not None else  0.0
+
+    # Inserting Total Budget between certain dates :
+    async def get_total_budget(self, user_id: str, start_date: str, end_date: str) :
+        cursor = await self.db.execute(
+              """
+            SELECT SUM(amount)
+            FROM budgets
+            WHERE user_id = ?
+            AND start_date <= ?
+            AND end_date >= ? """,
+            (user_id, start_date, end_date)
+         )
+        row = await cursor.fetchone()
+        return row[0] if row[0] is not None else 0.0
     
 async def get_memory():
     async with aiosqlite.connect(DB_PATH) as db:
