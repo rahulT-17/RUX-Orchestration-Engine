@@ -1,7 +1,7 @@
 # services/confidence_service.py : This file is responsible for implementing the business logic related to recording user feedback on the agent's responses
 
 from sqlalchemy import Integer, Float, select, func , cast
-from models import Agent_Outcomes
+from models import AgentFeedback
 
 class ConfidenceService :
     def __init__(self, db) :
@@ -16,12 +16,12 @@ class ConfidenceService :
         query = (
             select(
                 func.count().label("samples"),
-                func.avg(cast(cast(Agent_Outcomes.was_correct, Integer), Float)).label("accuracy")
+                func.avg(cast(cast(AgentFeedback.was_correct, Integer), Float)).label("accuracy")
             )
             .where(
-                Agent_Outcomes.user_id == user_id,
-                Agent_Outcomes.domain == domain,
-                Agent_Outcomes.task_type == task_type
+                AgentFeedback.user_id == user_id,
+                AgentFeedback.domain == domain,
+                AgentFeedback.task_type == task_type
             )
         )
         result = await self.db.execute(query)

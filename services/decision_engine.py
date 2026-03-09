@@ -4,8 +4,7 @@ from services.critic_service import CriticService
 
 class DecisionEngine :
 
-    def __init__ (self, db, critic_service) :
-        self.db = db
+    def __init__ (self, critic_service) :
         self.critic_service = critic_service
 
 
@@ -36,26 +35,36 @@ class DecisionEngine :
     
     async def system_reasoning(self, domain, task_type, result) :
 
+        status = result.get("status") if isinstance(result, dict) else None
+
         """
         Deterministic reasoning based on predefined rules for specific domains and task types."""
 
         if domain == "expense" :
              
             if task_type == "log" :
-                return "Expense logged"
-
+                if status == "logged_with_warning" :
+                    return f"Warning: {result.get('reason')} — {result.get('attempted_total')} of {result.get('budget')} budget used."
+                
+                elif status == "rejected" :
+                    return f"Expense rejected: {result.get('reason')} — {result.get('attempted_total')} of {result.get('budget')} budget used."
+                return None # clean log no observation needed
+            
             elif task_type == "set_budget":
-                return "Budget created successfully. Future expense will be validated."
+                return "Budget set. Future expenses in this category will be validated against it."
             
             elif task_type == "analyze" :
-                return "Expense analysis generated from transaction history."
+                # raw dict came through somehow
+                if isinstance(result,dict):
+                    return f"Analysis complete for {result.get('category', 'all categories')} over {result.get('period', 'all time')}."
+                return None  # already a formatted string, nothing to add
             
-            else :
-                return "Expection : not yet "
+            elif task_type == "get_budget" :
+                return None # result already speaks for itself
             
         if domain == "project" :
             if task_type == "create_project" :
-                return "Project creation recorded."
+                return None # creation successful, no observation needed.
 
             elif task_type == "delete_project" :
                 return "Project deletion is irreversible."

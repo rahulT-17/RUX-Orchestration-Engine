@@ -17,6 +17,7 @@ class Executor:
     def __init__(self ,tools_registry, critic_service) :
         self.tools_registry = tools_registry
         self.critic_service = critic_service
+        self.decision_engine = DecisionEngine(critic_service)
     
     async def execute(self, state , db) :
         state.set_stage("EXECUTING")
@@ -62,7 +63,7 @@ class Executor:
         try :
             # Execute the tool function :
 
-            result = await tool.function(state.user_id, validated,db)
+            result = await tool.function(state.user_id, validated, db)
             
         except Exception as e :
             
@@ -118,7 +119,7 @@ class Executor:
 
         auto_correct = False
 
-        if domain == "expense" and task_type in ["log", "set_budget", "anaylze"]: 
+        if domain == "expense" and task_type in ["log", "set_budget", "analyze"]: 
             auto_correct = True
 
         elif domain == "project" and task_type in ["create_project", "delete_project"] :
@@ -135,11 +136,9 @@ class Executor:
             task_type = task_type,
             was_correct = auto_correct)
         
-        # Decision engine :
+        # Decision engine - Generate system reasoning and LLM-based critique for the executed action, which will be included in the response to provide transparency and insights to the user about the action's outcome.
 
-        decision_engine = DecisionEngine(db, self.critic_service)
-
-        analysis = await decision_engine.evaluate(
+        analysis = await self.decision_engine.evaluate(
             state.user_id,
             state.message,
             domain,
@@ -169,15 +168,15 @@ class Executor:
             response += f"\n\nSecond Opinion:\n{analysis['critic_analysis']}"
 
         if confidence["confidence"] is None  :
-            response += f"{result}\n\nConfidence: insufficient data ({confidence['samples']}samples)"
+            response += f"\n\nConfidence: insufficient data ({confidence['samples']}samples)"
             
         else :
 
-            response +=  f"\n\nConfidence: Confidence: {confidence['confidence']}%  (based on {confidence['samples']} runs)"
+            response +=  f"\n\nConfidence: {confidence['confidence']}%  (based on {confidence['samples']} runs)"
                 
                 
                 
-        return response
+        return {"run_id" : run_id, "response" : response}
             
             
             

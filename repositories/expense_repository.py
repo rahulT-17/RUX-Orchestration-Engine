@@ -11,12 +11,12 @@ class ExpenseRepository :
     def __init__(self, db:AsyncSession):
         self.db = db 
 
-    async def log_expense(self, user_id: str, amount: float, note: str | None, category: str ):
+    async def log_expense(self, user_id: str, amount: float,  category: str , note: str | None):
         expense = Expense(
             user_id=user_id,
             amount=amount,
-            note=note,
-            category=category
+            category=category,
+            note=note
         )
         self.db.add(expense)
         await self.db.commit()

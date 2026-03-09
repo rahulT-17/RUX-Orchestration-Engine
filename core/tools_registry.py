@@ -4,7 +4,6 @@
  Each tool is defined with its function, input schema, risk level, and whether it requires confirmation before execution. The agent core will use this registry to look up and execute the appropriate tool based on the user message and the LLM response.
  The tools registry allows us to easily manage and organize the different actions that the agent can perform, and also to add new tools in the future without having to change the core logic of the agent. """
 
-from turtle import st
 
 from pydantic import BaseModel, Field
 from typing import Callable, Dict , Any , Optional , Literal
@@ -135,7 +134,7 @@ def bulid_tools_registry(db) :
            
         # GET BUDGET :
         elif params.action == "get_budget" :
-            result = await expense_service.get_budget(user_id)
+            result = await expense_service.get_budget(user_id, category=params.category)
             
         
         # LOG EXPENSE : 
@@ -143,7 +142,7 @@ def bulid_tools_registry(db) :
             if params.amount is None or params.category is None :
                 return "amount and category required for log action"
             
-            result = await expense_service.log_expense (
+            result = await expense_service.log_expense(
                 user_id = user_id,
                 amount = params.amount,
                 category = params.category,

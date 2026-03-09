@@ -54,7 +54,7 @@ async def get_recent_outcomes(limit: int = 20, db: AsyncSession = Depends(get_db
     query = (
         select(Agent_Outcomes)
         .order_by(Agent_Outcomes.created_at.desc())
-        .limit(20)
+        .limit(limit)
     )
 
     result = await db.execute(query)

@@ -2,7 +2,6 @@
 
 from fastapi import FastAPI
 from api.routes import router
-from api.projects_routes import router as project_router
 from memory.memory_manager import get_memory
 
 from api.debug_routes import router as debug_router
@@ -35,13 +34,8 @@ app = FastAPI(
 # connecting the app to api router :
 
 app.include_router(router)
-app.include_router(project_router)
 app.include_router(debug_router)
 
-@app.on_event("startup")
-async def startup() :
-    async for memory in get_memory() :
-       await memory.init_db()
 
 @app.get("/")
 def root() :

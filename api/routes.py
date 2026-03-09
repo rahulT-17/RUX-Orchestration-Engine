@@ -15,9 +15,7 @@ from core.config import LM_STUDIO_URL, PLANNER_MODEL, CRITIC_MODEL
 
 # Repositories for handling database interactions related to agent runs and outcomes :
 from repositories.agent_outcomes_repository import AgentOutcomesRepository
-
-# memory manager and its dependency function to get the memory instance for each request :
-from memory.memory_manager import MemoryManager, get_memory 
+from repositories.agent_feedback_repository import AgentFeedbackRepository
 
 from database import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -80,11 +78,19 @@ async def chat(
         db
     )
 
-    return {"response" : response}
+    if isinstance(response, dict) and "run_id" in response:
+        return {
+            "response" : response["response"],
+            "run_id" : response["run_id"],}
+    return {
+        "response" : response,
+        "run_id" : None,
+    }
 
 class FeedbackRequest(BaseModel) :
     ''' this will accept run_id and feedback as string '''
     run_id : int
+    user_id : str
     domain : str
     task_type : str
     was_correct : bool
@@ -99,11 +105,12 @@ async def record_feedback(
 ) :
     ''' This endpoint will receive feedback from the user regarding a specific agent run, and it will record that feedback in the database. '''
     
-    # Create an instance of the AgentOutcomesRepository to interact with the agent_outcomes table in the database.
-    repo = AgentOutcomesRepository(db)
+    # Create an instance of the AgentFeedbackRepository to interact with the agent_feedback table in the database.
+    repo = AgentFeedbackRepository(db)
 
     # Record the feedback using the repository method.
-    await repo.record_outcome(
+    await repo.record_feedback(
+        user_id = request.user_id,
         run_id = request.run_id,
         domain = request.domain,
         task_type = request.task_type,

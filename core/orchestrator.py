@@ -21,6 +21,7 @@ class Orchestrator:
         # Step 1 : Create a new execution state for the incoming message :
         state = ExecutionState(user_id , message)
         
+
         # Confirmation handling logic : Check if there is a pending confirmation for the user, if yes, we will handle the confirmation response and return the result without going through the planning and execution stages.
         confirm_result = await self.confirmation_manager.handle(
             state , db , self.executor.tools_registry)
@@ -47,9 +48,12 @@ class Orchestrator:
 
         result = await self.executor.execute(state , db)
 
+        if isinstance(result, dict) and "run_id" in result:
+            return result
+
         return {
             "response": result,
-            "action": state.action
+            "run_id": None
         }
 
         

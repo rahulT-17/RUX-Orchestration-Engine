@@ -2,6 +2,7 @@
 # It manages the pending confirmations in the memory and processes the user's response to either confirm or reject the action.
 import json 
 from repositories.confirmation_repository import ConfirmationRepository
+from repositories.agent_run_repository import AgentRunRepository
 
 class ConfirmationManager: 
 
@@ -38,8 +39,19 @@ class ConfirmationManager:
             
             result = await tool.function(state.user_id, validated, db)
 
-            await repo.mark_executed(pending.confirmation_id)
+            # log the confirmed execution
+            agentrun_repo = AgentRunRepository(db)
+            await agentrun_repo.log_run(
+                user_id=state.user_id,
+                message=state.message,
+                action=pending.action,
+                parameters=parameters,
+                result=result,
+                latency=0.0  # confirmation flow doesn't track latency, use 0
+            )
 
+
+            await repo.mark_executed(pending.confirmation_id)
             return result
         
         elif reply == "no" :

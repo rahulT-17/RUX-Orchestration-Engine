@@ -1,6 +1,6 @@
 # services / expense_service.py : This file is responsible for implementing the business logic related to expenses and budgets, such as setting budgets, logging expenses, and analyzing spending patterns. It acts as an intermediary between the API endpoints and the database repos :
 
-from datetime import datetime , date
+from datetime import date
 from repositories.expense_repository import ExpenseRepository
 from repositories.budget_repository import BudgetRepository
 
@@ -76,9 +76,22 @@ class ExpenseService :
         }
 
     # Get active budget for a user and category on a specific date (usually today):
-    async def get_budget(self, user_id: str) :
+    async def get_budget(self, user_id: str, category: str | None=None) :
         today = date.today()
-        budget = await self.budget_repo.get_active_budget(user_id,today)
+
+        if not category :
+            return {
+                "status" : "failed",
+                "reason" : "Category is required to check budget."
+            }
+        
+        budget = await self.budget_repo.get_active_budget(
+            user_id=user_id,
+            category=category,
+            today=today
+        )
+        
+        print(f"DEBUG BUDGET: {budget} for category={category} today={today}")
 
         if not budget :
             return {
@@ -116,10 +129,18 @@ class ExpenseService :
            }
         category = category.strip().lower()
 
-        budget = await self.budget_repo.get_active_budget(user_id,category,today)
+        budget = await self.budget_repo.get_active_budget(
+            user_id=user_id,
+            category=category,
+            today=today
+        )
         # IF no active budget -> normal logging :
         if not budget :
-            expense = await self.expense_repo.log_expense( user_id, amount, category , note)
+            expense = await self.expense_repo.log_expense( 
+                user_id=user_id,
+                amount=amount,
+                category=category, 
+                note=note)
             return {
                 "status" : "logged",
                 "expense_id" :expense.expense_id,
@@ -131,10 +152,10 @@ class ExpenseService :
         budget_amount = budget.amount
 
         current_total = await self.expense_repo.get_total_between(
-            user_id,
-            category,
-            budget.start_date,
-            budget.end_date
+            user_id=user_id,
+            category=category,
+            start_date=budget.start_date,
+            end_date=budget.end_date
         )
         
         # Projected Total :
@@ -153,7 +174,7 @@ class ExpenseService :
                         "attempted_total": projected_total
                     }
                 else:  # soft
-                    expense = await self.expense_repo.log_expense(user_id, amount, category, note)
+                    expense = await self.expense_repo.log_expense(user_id=user_id, amount=amount, category=category, note=note)
                     return {
                         "status": "logged_with_warning",
                         "expense_id": expense.expense_id,
@@ -164,7 +185,11 @@ class ExpenseService :
                     }
 
             elif projected_total == budget_amount:
-                expense = await self.expense_repo.log_expense(user_id, amount, category, note)
+                expense = await self.expense_repo.log_expense(
+                    user_id=user_id, 
+                    amount=amount, 
+                    category=category, 
+                    note=note)
                 return {
                     "status": "logged_with_warning",
                     "expense_id": expense.expense_id,
@@ -175,7 +200,11 @@ class ExpenseService :
                 }
 
             else:  # within budget
-                expense = await self.expense_repo.log_expense(user_id, amount, category, note)
+                expense = await self.expense_repo.log_expense(
+                    user_id=user_id, 
+                    amount=amount, 
+                    category=category, 
+                    note=note)
                 return {
                     "status": "logged",
                     "expense_id": expense.expense_id,
