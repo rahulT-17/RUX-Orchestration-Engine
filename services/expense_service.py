@@ -1,9 +1,8 @@
-# services / expense_service.py : This file is responsible for implementing the business logic related to expenses and budgets, such as setting budgets, logging expenses, and analyzing spending patterns. It acts as an intermediary between the API endpoints and the database repos :
+# STUB
 
 from datetime import date
-from repositories.expense_repository import ExpenseRepository
-from repositories.budget_repository import BudgetRepository
 
+from domains.expense.repository import ExpenseRepository, BudgetRepository
 
 class ExpenseService :
     def __init__(self, db):

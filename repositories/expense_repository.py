@@ -1,5 +1,4 @@
-# repositories / expense_repository.py : This file is used for defining the functions to interact with the database for expenses related operations.
-
+# STUB
 from typing import Optional
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
