@@ -52,6 +52,61 @@ User
 
 The core idea is simple: the LLM is not trusted. Anything before the executor is probabilistic. Anything after schema validation is expected to be deterministic, auditable, and safe to reason about.
 
+## Key Design Decisions
+
+### 1. The Trust Boundary
+
+The Executor is where trust is established. LLM output is treated as untrusted input and must pass schema validation with `extra="forbid"` before any tool is called. This catches hallucinated field names, invented action types, and malformed JSON before they reach domain logic.
+
+```text
+LLM output         -> untrusted - can hallucinate anything
+Executor (schema)  -> trust boundary
+Tool onward        -> deterministic, validated, safe
+```
+
+### 2. Why the Planner Doesn't Call Tools Directly
+
+LLMs are probabilistic. Tools are deterministic, state-mutating, and potentially destructive. Mixing these responsibilities makes the system harder to test, harder to reason about, and much easier to break.
+
+```text
+Planner  -> intent extraction only
+Executor -> structural validation
+Tool     -> domain gateway
+Service  -> business rules
+Memory   -> persistence
+```
+
+### 3. Three-Layer Planner
+
+Not everything should reach the LLM.
+
+```text
+Layer 1 -> greeting keywords -> instant deterministic reply
+Layer 2 -> action intent     -> LLM extracts structured JSON
+Layer 3 -> open question     -> LLM responds conversationally
+```
+
+This protects confidence score integrity. Earlier, greeting-like inputs could accidentally flow into action logic and pollute outcome history.
+
+### 4. Confidence from Data, Not from the LLM
+
+Asking an LLM how confident it is usually produces weak signals. RUX is designed to calculate confidence from real historical outcomes:
+
+```sql
+SELECT domain, task_type,
+       COUNT(*)         AS samples,
+       AVG(was_correct) AS accuracy
+FROM agent_outcomes
+WHERE user_id = :user_id
+GROUP BY domain, task_type
+```
+
+Confidence should only surface when there is enough history to justify it. Otherwise the system should return something like `"Confidence: insufficient data"` instead of fabricating certainty.
+
+### 5. Critic Uses a Different Model
+
+If the Planner and Critic use the same model, the Critic tends to agree with the original reasoning too easily. The idea behind RUX is that critique should be structurally independent, so the second opinion can challenge the first instead of just echoing it.
+
 ## Core Ideas
 
 - **Trust boundary**: planner output is treated as untrusted until it passes schema validation.
