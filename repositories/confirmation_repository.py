@@ -1,7 +1,6 @@
 # repositories/confirmation_repository.py => this file is responsible for handling all database interactions related to the Confirmation model, 
 # such as creating new confirmations, retrieving existing ones, and updating confirmation status.
 
-import json
 from sqlalchemy import select, update
 from models import Confirmation
 
@@ -23,11 +22,12 @@ class ConfirmationRepository:
         return result.scalar_one_or_none()
     
     
-    async def create(self, user_id: str, action: str, parameters: dict):
+    async def create(self, user_id: str, action: str, parameters: dict, original_message: str):
         confirmation = Confirmation(
             user_id=user_id,
             action=action,
             parameters=parameters,
+            original_message=original_message
         )
         self.db.add(confirmation)
         await self.db.commit()

@@ -47,10 +47,10 @@ class Confirmation(Base) :
 
     action = Column(String, nullable=False)
     parameters = Column(JSONB, nullable=True) # Store parameters as JSON string
-
+    original_message = Column(Text, nullable=True) # Store the original message that triggered the confirmation request
+    
     status = Column(SAEnum(ConfirmationStatus), nullable=False, default=ConfirmationStatus.pending) 
     #         ^ only "pending", "executed", "rejected" allowed — DB rejects anything else
-
     created_at = Column(DateTime(timezone=True), server_default=func.now()) # Store the creation time of the confirmation request
 
     user = relationship("User" , backref="confirmations")
@@ -110,7 +110,7 @@ class AgentRun(Base) :
 
     parameters = Column(JSON) # Store the parameters for the action as JSON 
 
-    result = Column(Text) # Store the result of the action execution as JSON
+    result = Column(JSON, nullable=True) # Store the result of the action execution as JSON
     latency = Column(Float) # Store the latency of the action execution
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

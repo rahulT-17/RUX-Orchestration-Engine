@@ -84,11 +84,14 @@ class Executor:
         parameters,
         validated,
         result: ToolResponse,
+        execution_message: str | None = None,
     ):
         # The normalized tool result is now part of runtime state and can be reused
         # by later stages if needed.
         state.tool_result = result
         state.set_stage("EXECUTION_COMPLETED")
+
+        effective_message = execution_message or state.message
 
         # Classify the run once so logging, outcomes, and confidence all speak
         # the same domain/task language.
@@ -103,7 +106,7 @@ class Executor:
         agentrun_repo = AgentRunRepository(db)
         run_id = await agentrun_repo.log_run(
             user_id=state.user_id,
-            message=state.message,
+            message=effective_message,
             action=action_name,
             parameters=parameters,
             result=result.to_dict(),
@@ -127,7 +130,7 @@ class Executor:
         # post-execution reasoning uses the same contract as the rest of runtime.
         analysis = await self.decision_engine.evaluate(
             state.user_id,
-            state.message,
+            effective_message,
             domain,
             task_type,
             result,
@@ -176,6 +179,7 @@ class Executor:
                 user_id=state.user_id,
                 action=action_name,
                 parameters=parameters,
+                original_message=state.message,
             )
             return f"Confirmation required for '{action_name}' action. Reply (yes/no)"
 

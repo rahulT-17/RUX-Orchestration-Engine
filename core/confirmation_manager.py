@@ -96,19 +96,27 @@ class ConfirmationManager:
             result.metadata = result.metadata or {}
             result.metadata["confirmed"] = True
 
-        # 7) Only after a real confirmed execution attempt do we close the pending request.
-        await repo.mark_executed(pending.confirmation_id)
-
+            
         # 8) Reuse the executor's shared finalization path so confirmed actions get
         # the same logging, outcomes, analysis, confidence, and response format.
-        finalized = await executor.finalize_execution(
-            state=state,
-            db=db,
-            tool=tool,
-            action_name=pending.action,
-            parameters=parameters,
-            validated=validated,
-            result=result,
-        )
+        try:
+            finalized = await executor.finalize_execution(
+                state=state,
+                db=db,
+                tool=tool,
+                action_name=pending.action,
+                parameters=parameters,
+                validated=validated,
+                result=result,
+                execution_message=pending.original_message,
+            )
+        except Exception as e:
+            return {
+                "run_id": None,
+                "response": f"Error during finalization: {str(e)}",
+                "action": "confirmation",
+            }
+        # Mark executed only after shared finalization succeeds.
+        await repo.mark_executed(pending.confirmation_id)
         finalized["action"] = "confirmation"
         return finalized

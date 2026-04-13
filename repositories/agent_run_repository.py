@@ -13,7 +13,7 @@ class AgentRunRepository :
             message = message,
             action = action,
             parameters = parameters,
-            result = str(result), # Convert result to string before storing in the database
+            result = result,
             latency = latency
         )
         self.db.add(run)
