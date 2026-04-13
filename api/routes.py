@@ -1,7 +1,7 @@
 # api/routes.py
 
 # Fast API router for handling incoming API requests related to the AI companion system :
-from fastapi import APIRouter , Depends
+from fastapi import APIRouter , Depends, HTTPException
 from pydantic import BaseModel
 
 # Importing the Orchestrator and its dependencies :
@@ -91,31 +91,42 @@ class FeedbackRequest(BaseModel) :
     ''' this will accept run_id and feedback as string '''
     run_id : int
     user_id : str
-    domain : str
-    task_type : str
     was_correct : bool
     correction : str | None = None
 
 
 @router.post("/feedback")
 async def record_feedback(
-    
     request : FeedbackRequest,
     db: AsyncSession = Depends(get_db)
 ) :
     ''' This endpoint will receive feedback from the user regarding a specific agent run, and it will record that feedback in the database. '''
     
-    # Create an instance of the AgentFeedbackRepository to interact with the agent_feedback table in the database.
-    repo = AgentFeedbackRepository(db)
+    outcomes_repo = AgentOutcomesRepository(db)
+    outcome = await outcomes_repo.get_by_run(request.run_id, request.user_id)
+    if not outcome:
+        raise HTTPException(status_code=404, detail="Outcome not found")
 
-    # Record the feedback using the repository method.
-    await repo.record_feedback(
-        user_id = request.user_id,
+    # Update the canonical per-run outcome first.
+    updated = await outcomes_repo.apply_feedback(
         run_id = request.run_id,
-        domain = request.domain,
-        task_type = request.task_type,
+        user_id = request.user_id,
         was_correct = request.was_correct,
         correction = request.correction
+    )
+
+    if not updated:
+        raise HTTPException(status_code=409, detail="Unable to apply feedback for this run")
+
+    # Persist the human feedback event so confidence remains feedback-driven.
+    feedback_repo = AgentFeedbackRepository(db)
+    await feedback_repo.record_feedback(
+        user_id=request.user_id,
+        run_id=request.run_id,
+        domain=outcome.domain,
+        task_type=outcome.task_type,
+        was_correct=request.was_correct,
+        correction=request.correction,
     )
 
     return {"status" : "feedback recorded successfully"}
