@@ -1,8 +1,10 @@
 # Purpose : To boot the system:
 
+import logging
+import os
+
 from fastapi import FastAPI
 from api.routes import router
-from memory.memory_manager import get_memory
 
 from api.debug_routes import router as debug_router
 
@@ -24,6 +26,12 @@ lastly working on confidence engine and second opinion engine , will be the x-fa
   remaining work is to implement the confidence engine and second opinion engine, and also to do some testing and fine-tuning of the system.
 
 '''
+
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+  level=LOG_LEVEL,
+  format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
 
 app = FastAPI(
     title="RUX Personal OS AI system",

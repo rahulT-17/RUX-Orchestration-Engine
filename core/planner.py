@@ -1,9 +1,12 @@
 # CORE / planner.py => This is used for extracting planner from agent_core.py 
 # Splitting LLM call, json parsing and schema validation from agent_core.py to planner.py to make the code more modular and maintainable.
 
+import logging
 import json
 from json import JSONDecodeError
 from core.execution_state import ExecutionState
+
+logger = logging.getLogger(__name__)
 
 # ── Layer 1: Deterministic greeting detection ──
 # These never reach the LLM — instant response, zero cost
@@ -221,7 +224,9 @@ class Planner:
         # ── Layer 2: Action intent (LLM extracts structured JSON) ──
         if self._has_action_intent(message):
             reply = await self.llm_service.generate(SYSTEM_PROMPT, state.message)
-            print(f"LM Studio response: {reply}")  # debug
+            
+            logger.debug("Planner's raw response: %s", reply)
+
             return await self._parse_action_reply(reply, state)
 
         # ── Layer 3: General question (LLM responds conversationally) ──
@@ -252,7 +257,8 @@ class Planner:
 
             state.planner_output = parsed
             state.set_stage("PLANNING_COMPLETED")
-            print(f"DEBUG PLANNER OUTPUT: {parsed}")  # debug
+            
+            logger.debug("Planner's parsed output: %s", parsed)  # debug
 
             return state, None
 

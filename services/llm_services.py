@@ -2,7 +2,9 @@
 # This service layer isolates the LM logic from the API routes, making it easier to swap out the model provider or test the agent core without relying on the actual LM """
 
 import httpx
+import logging
 
+logger = logging.getLogger(__name__)
 
 ## Service layer isolates LM logic from API routes.
 # Makes model provider swappable and easier to test.
@@ -35,8 +37,9 @@ class LLMService :
 
         response.raise_for_status() 
         data = response.json()
-
-        print("LM Studio response:", data) # Debugging line to check the raw response from LM Studios
+        
+        logger.debug("LM response received. choices=%s", len(data.get("choices", [])))
+        
         return data["choices"][0]["message"]["content"].strip()
       
     async def converse(self, user_message: str) -> str:
