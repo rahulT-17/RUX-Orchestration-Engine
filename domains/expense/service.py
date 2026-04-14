@@ -2,7 +2,7 @@
  such as setting budgets, logging expenses, and analyzing spending patterns.
   It acts as an intermediary between the API endpoints and the database repos :"""
 
-from datetime import date
+from datetime import date, timedelta
 
 from domains.expense.repository import ExpenseRepository, BudgetRepository
 
@@ -102,8 +102,8 @@ class ExpenseService :
             "status": "success",
             "message": f"Active budget: {budget.amount} from {budget.start_date} to {budget.end_date}",
             "amount": budget.amount,
-            "start_date" : budget.start_date,
-            "end_date" : budget.end_date
+            "start_date" : budget.start_date.isoformat(),
+            "end_date" : budget.end_date.isoformat()
         }   
 
     async def log_expense(self, user_id, amount, category, note, mode="soft") :
@@ -229,7 +229,8 @@ class ExpenseService :
             start_date = today.replace(day=1)
             end_date = today
         elif period == "this week":
-            start_date = today.replace(day=today.day - today.weekday())
+            # Week starts on Monday. timedelta avoids invalid day values at month boundaries.
+            start_date = today - timedelta(days=today.weekday())
             end_date = today
         elif period == "today":
             start_date = today

@@ -7,6 +7,18 @@ class DecisionEngine :
     def __init__ (self, critic_service) :
         self.critic_service = critic_service
 
+    def _should_run_critic(self, domain: str, task_type: str, result: ToolResponse) -> bool:
+        # Always evaluate failures/partials with critic for diagnostics.
+        if result.status in [ToolStatus.FAILED, ToolStatus.PARTIAL]:
+            return True
+
+        # For successful runs, critic is only useful for state-changing/high-risk actions.
+        return (domain, task_type) in {
+            ("project", "delete_project"),
+            ("expense", "log"),
+            ("expense", "set_budget"),
+        }
+
 
     async def evaluate(self, user_id, message, domain, task_type, result: ToolResponse):
         """
@@ -20,8 +32,7 @@ class DecisionEngine :
         # Critic runs as a second opinion layer for important domains.
         critic_analysis = None
 
-        # Only call critic for important domains
-        if domain in ["expense", "project"] :
+        if self._should_run_critic(domain, task_type, result):
             critic_analysis = await self.critic_service.critique(
                 message,
                 domain,

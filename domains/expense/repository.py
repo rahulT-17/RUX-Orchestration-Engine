@@ -1,7 +1,7 @@
 # domains / expense / repository.py : This file is responsible for defining the functions to interact with the database for expense related operations.
 
 from typing import Optional
-from datetime import date
+from datetime import date, datetime, time, timedelta, timezone
 
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +14,14 @@ class ExpenseRepository :
 
     def __init__(self, db:AsyncSession):
         self.db = db 
+
+    @staticmethod
+    def _day_start(day: date) -> datetime:
+        return datetime.combine(day, time.min, tzinfo=timezone.utc)
+
+    @staticmethod
+    def _next_day_start(day: date) -> datetime:
+        return datetime.combine(day + timedelta(days=1), time.min, tzinfo=timezone.utc)
 
     async def log_expense(self, user_id: str, amount: float,  category: str , note: str | None):
         expense = Expense(
@@ -30,12 +38,15 @@ class ExpenseRepository :
     # Get total expenses for a user, optionally filtered by category and date range
     async def get_total_between(self, user_id: str, category: str, start_date: date , end_date: date ):
 
+        start_dt = self._day_start(start_date)
+        end_exclusive = self._next_day_start(end_date)
+
         result =  await self.db.execute(
             select(func.coalesce(func.sum(Expense.amount), 0.0))
             .where(Expense.user_id == user_id)
             .where(Expense.category == category.lower())
-            .where(Expense.created_at >= start_date)
-            .where(Expense.created_at <= end_date)  
+            .where(Expense.created_at >= start_dt)
+            .where(Expense.created_at < end_exclusive)
         )
         return result.scalar()
     
@@ -56,9 +67,9 @@ class ExpenseRepository :
             query = query.where(Expense.category == category.lower())
 
         if start_date:
-           query = query.where(Expense.created_at >= start_date)
+              query = query.where(Expense.created_at >= self._day_start(start_date))
         if end_date:
-           query = query.where(Expense.created_at <= end_date)
+              query = query.where(Expense.created_at < self._next_day_start(end_date))
 
         result = await self.db.execute(query)
         return result.scalar_one()

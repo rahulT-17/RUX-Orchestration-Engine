@@ -88,6 +88,16 @@ async def _test_expense_tools_smoke():
                 assert res1.status == ToolStatus.SUCCESS
                 assert "budget" in res1.message.lower() or "created" in res1.message.lower()
 
+                get_budget = ExpenseManagerParams(
+                    action="get_budget",
+                    category="food",
+                )
+                get_budget_res = await tool.function(soft_user_id, get_budget, session)
+                assert isinstance(get_budget_res, ToolResponse)
+                assert get_budget_res.status == ToolStatus.SUCCESS
+                assert isinstance(get_budget_res.data.get("start_date"), str)
+                assert isinstance(get_budget_res.data.get("end_date"), str)
+
                 log = ExpenseManagerParams(
                     action="log",
                     amount=20.0,
@@ -110,6 +120,8 @@ async def _test_expense_tools_smoke():
                 assert isinstance(res3, ToolResponse)
                 assert res3.status == ToolStatus.SUCCESS
                 assert "total expense" in res3.message.lower()
+                assert res3.data is not None
+                assert float(res3.data["total"]) == pytest.approx(20.0)
             finally:
                 await _cleanup_test_user(session, soft_user_id)
 
@@ -144,4 +156,50 @@ async def _test_expense_tools_smoke():
                 await _cleanup_test_user(session, hard_user_id)
     finally:
         # Prevent cross-event-loop pool reuse when multiple asyncio.run tests execute in one pytest run.
+        await engine.dispose()
+
+
+def test_agent_run_repository_serializes_dates_in_json_columns():
+    asyncio.run(_test_agent_run_repository_serializes_dates_in_json_columns())
+
+
+async def _test_agent_run_repository_serializes_dates_in_json_columns():
+    from database import AsyncSessionLocal, engine, Base
+    from repositories.agent_run_repository import AgentRunRepository
+
+    await _ensure_tables(engine, Base)
+
+    user_id = f"test_{uuid.uuid4().hex}"
+
+    try:
+        async with AsyncSessionLocal() as session:
+            await _create_test_user(session, user_id)
+
+            try:
+                repo = AgentRunRepository(session)
+                run_id = await repo.log_run(
+                    user_id=user_id,
+                    message="get budget for food",
+                    action="expense_manager",
+                    parameters={
+                        "action": "get_budget",
+                        "category": "food",
+                        "requested_on": date.today(),
+                    },
+                    result={
+                        "status": "success",
+                        "message": "Active budget found",
+                        "data": {
+                            "start_date": date.today(),
+                            "end_date": date.today() + timedelta(days=30),
+                        },
+                    },
+                    latency=1.23,
+                )
+
+                assert isinstance(run_id, int)
+                assert run_id > 0
+            finally:
+                await _cleanup_test_user(session, user_id)
+    finally:
         await engine.dispose()
