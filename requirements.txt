@@ -1,6 +1,7 @@
 fastapi
 uvicorn
 pydantic
+python-dotenv
 httpx
 sqlalchemy
 asyncpg
