@@ -6,6 +6,8 @@ import os
 from fastapi import FastAPI
 from api.routes import router
 
+from core.migration_guard import ensure_schema_revision
+
 from api.debug_routes import router as debug_router
 
 ## APP CONFIGURATION :
@@ -33,6 +35,7 @@ logging.basicConfig(
   format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 
+    
 app = FastAPI(
     title="RUX Personal OS AI system",
     version="2.1.0",
@@ -44,6 +47,9 @@ app = FastAPI(
 app.include_router(router)
 app.include_router(debug_router)
 
+@app.on_event("startup")
+async def verify_schema_revision():
+  await ensure_schema_revision()
 
 @app.get("/")
 def root() :
