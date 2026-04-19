@@ -1,9 +1,13 @@
 # api / debug_routes.py : This file is used for defining debug routes for testing and debugging purposes.
 # These routes are not meant for production use and should be used with caution.
 
-from fastapi import APIRouter , Depends
+from fastapi import APIRouter , Depends, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+
+# Rate limiting
+from core.config import DEBUG_RATE_LIMIT_REQUESTS, DEBUG_RATE_LIMIT_WINDOW_SEC
+from core.rate_limiter import enforce_rate_limit
 
 # auth 
 from core.auth import verify_api_key
@@ -13,13 +17,20 @@ from services.confidence_service import ConfidenceService
 from database import get_db
 from models import AgentRun, Agent_Outcomes
 
-
+async def rate_limit_debug(request: Request, response: Response):
+    await enforce_rate_limit(
+        request,
+        response,
+        scope="debug",
+        limit=DEBUG_RATE_LIMIT_REQUESTS,
+        window_sec=DEBUG_RATE_LIMIT_WINDOW_SEC,
+    )
 
 router = APIRouter(
     prefix="/debug", 
     tags=["Observability"],
-    dependencies=[Depends(verify_api_key)],
-   )  
+    dependencies=[Depends(verify_api_key), Depends(rate_limit_debug)],
+)
 
 @router.get("/runs")
 async def get_recent_runs(limit: int = 20, db: AsyncSession = Depends(get_db)):

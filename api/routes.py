@@ -1,7 +1,7 @@
 # api/routes.py
 
 # Fast API router for handling incoming API requests related to the AI companion system :
-from fastapi import APIRouter , Depends, HTTPException
+from fastapi import APIRouter , Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field, field_validator
 
 # config 
@@ -12,7 +12,14 @@ from core.config import (
     MAX_MESSAGE_LENGTH,
     MAX_USER_ID_LENGTH,
     MAX_CORRECTION_LENGTH,
+    CHAT_RATE_LIMIT_REQUESTS,
+    CHAT_RATE_LIMIT_WINDOW_SEC,
+    FEEDBACK_RATE_LIMIT_REQUESTS,
+    FEEDBACK_RATE_LIMIT_WINDOW_SEC,
 )
+
+# rate limiting 
+from core.rate_limiter import enforce_rate_limit
 
 # auth 
 from core.auth import verify_api_key
@@ -24,8 +31,6 @@ from core.planner import Planner
 from core.executor import Executor  
 from core.confirmation_manager import ConfirmationManager
 from core.tools_registry import bulid_tools_registry
-from core.config import LM_STUDIO_URL, PLANNER_MODEL, CRITIC_MODEL
-
 
 
 # Repositories for handling database interactions related to agent runs and outcomes :
@@ -37,15 +42,30 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.critic_service import CriticService
 
+# rate limiting function for /chat endpoint :
+async def rate_limit_chat(request: Request, response: Response):
+    await enforce_rate_limit(
+        request,
+        response,
+        scope="chat",
+        limit=CHAT_RATE_LIMIT_REQUESTS,
+        window_sec=CHAT_RATE_LIMIT_WINDOW_SEC,
+    )
 
-
+# rate limit function for /feedback endpoint :
+async def rate_limit_feedback(request: Request, response: Response):
+    await enforce_rate_limit(
+        request,
+        response,
+        scope="feedback",
+        limit=FEEDBACK_RATE_LIMIT_REQUESTS,
+        window_sec=FEEDBACK_RATE_LIMIT_WINDOW_SEC,
+    )
 # Creating a router instance (this groups related endpoints) :
-
-router = APIRouter(tags=["chat"])    # This tag is used for documentation purposes; it groups the endpoints under the 'chat' section in the API docs
+router = APIRouter(tags=["chat"]) # This tag is used for documentation purposes; it groups the endpoints under the 'chat' section in the API docs
 
 
 # Initializing the LLM services for the planner and critic using the configuration variables defined in core/config.py :
-
 planner_llm  = LLMService(LM_STUDIO_URL, PLANNER_MODEL)  # LLM service instance for the planner
 critic_llm = LLMService(LM_STUDIO_URL, CRITIC_MODEL)
 
@@ -80,8 +100,10 @@ and returns the agent's response.
 @router.post("/chat") 
 async def chat(
     request : ChatRequest,
+    response: Response,
     db: AsyncSession = Depends(get_db),
     _auth: None = Depends(verify_api_key),
+    _rate_limit: None = Depends(rate_limit_chat),
 ):
     """ This is the main chat endpoint. It receives a user message, passes it to the agent core,
       and returns the agent's response. """
@@ -141,6 +163,7 @@ async def record_feedback(
     request : FeedbackRequest,
     db: AsyncSession = Depends(get_db),
     _auth: None = Depends(verify_api_key),
+    _rate_limit: None = Depends(rate_limit_feedback),
 ) :
     ''' This endpoint will receive feedback from the user regarding a specific agent run, and it will record that feedback in the database. '''
     
