@@ -2,7 +2,17 @@
 
 # Fast API router for handling incoming API requests related to the AI companion system :
 from fastapi import APIRouter , Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
+
+# config 
+from core.config import (
+    LM_STUDIO_URL,
+    PLANNER_MODEL,
+    CRITIC_MODEL,
+    MAX_MESSAGE_LENGTH,
+    MAX_USER_ID_LENGTH,
+    MAX_CORRECTION_LENGTH,
+)
 
 # auth 
 from core.auth import verify_api_key
@@ -48,8 +58,17 @@ confirmation_manager = ConfirmationManager()
 # This defines what input structure FastAPI expects :
 class ChatRequest(BaseModel) :
     ''' this will accept user_id and message as string '''
-    user_id : str
-    message : str 
+    user_id : str = Field(..., min_length=1, max_length=MAX_USER_ID_LENGTH)
+
+    message : str = Field(..., min_length=1, max_length=MAX_MESSAGE_LENGTH)
+
+    @field_validator("user_id", "message")
+    @classmethod
+    def strip_and_reject_blank(cls, value: str) -> str:
+        v = value.strip()
+        if not v:
+            raise ValueError("must not be blank")
+        return v
 
 # Main chat endpoint :
 
@@ -96,10 +115,26 @@ async def chat(
 class FeedbackRequest(BaseModel) :
     ''' this will accept run_id and feedback as string '''
     run_id : int
-    user_id : str
-    was_correct : bool
-    correction : str | None = None
+    user_id : str = Field(..., max_length=MAX_USER_ID_LENGTH)
 
+    was_correct : bool
+    correction : str | None = Field(default=None, max_length=MAX_CORRECTION_LENGTH)
+    
+    @field_validator("user_id")
+    @classmethod
+    def normalize_user_id(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("must not be blank")
+        return value
+
+    @field_validator("correction")
+    @classmethod
+    def normalize_correction(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        return value or None
 
 @router.post("/feedback")
 async def record_feedback(
