@@ -1,0 +1,46 @@
+on:
+pull_request:
+push:
+branches: [main]
+
+jobs:
+pytest:
+runs-on: ubuntu-latest
+
+services:
+  postgres:
+    image: postgres:16
+    env:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: rux_ci
+    ports:
+      - 5432:5432
+    options: >-
+      --health-cmd "pg_isready -U postgres -d rux_ci"
+      --health-interval 10s
+      --health-timeout 5s
+      --health-retries 10
+
+env:
+  DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/rux_ci
+
+steps:
+  - name: Checkout
+    uses: actions/checkout@v6
+
+  - name: Setup Python
+    uses: actions/setup-python@v6
+    with:
+      python-version: "3.11"
+
+  - name: Install dependencies
+    run: |
+      python -m pip install --upgrade pip
+      python -m pip install -r [requirements.txt](http://_vscodecontentref_/6)
+
+  - name: Apply migrations
+    run: alembic upgrade head
+
+  - name: Run tests
+    run: pytest -q
