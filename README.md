@@ -36,6 +36,12 @@ Recent updates focused on production baseline hardening:
 
 Current focus is CI migration enforcement, API integration coverage, and runtime extraction cleanup.
 
+If you are reviewing this repo quickly, current proof points are:
+- trust boundary + schema validation before tool execution
+- auth + guardrails + per-endpoint rate limiting at API layer
+- migration baseline with optional startup revision guard
+- persisted run/outcome/feedback data for observability and confidence
+
 ## What RUX Is
 
 Most toy agents look like this:
@@ -227,12 +233,27 @@ $env:ENABLE_SCHEMA_REVISION_GUARD="true"
 # Run the API
 python -m uvicorn main:app --reload
 
-# Quick checks
-curl http://127.0.0.1:8000/health
-curl -X POST http://127.0.0.1:8000/chat \
+# Quick checks (use curl.exe on Windows)
+curl.exe http://127.0.0.1:8000/
+curl.exe http://127.0.0.1:8000/health
+
+# chat
+curl.exe -X POST http://127.0.0.1:8000/chat \
     -H "Content-Type: application/json" \
     -H "X-API-Key: your-api-key" \
     -d '{"user_id":"demo","message":"hello"}'
+
+# feedback (run_id should be from a previous chat execution)
+curl.exe -X POST http://127.0.0.1:8000/feedback \
+    -H "Content-Type: application/json" \
+    -H "X-API-Key: your-api-key" \
+    -d '{"run_id":1,"user_id":"demo","was_correct":true,"correction":null}'
+
+# debug endpoints
+curl.exe -H "X-API-Key: your-api-key" "http://127.0.0.1:8000/debug/runs?limit=5"
+curl.exe -H "X-API-Key: your-api-key" "http://127.0.0.1:8000/debug/slow_runs"
+curl.exe -H "X-API-Key: your-api-key" "http://127.0.0.1:8000/debug/outcomes?limit=5"
+curl.exe -H "X-API-Key: your-api-key" "http://127.0.0.1:8000/debug/confidence?user_id=demo&domain=project&task_type=create_project"
 ```
 
 ## What Works Now
@@ -271,4 +292,4 @@ The goal is not to build another chatbot wrapper. The goal is to build the runti
 
 ---
 
-*Built as a learning-first engineering project. Actively evolving.*
+*Production-minded and actively evolving.*
