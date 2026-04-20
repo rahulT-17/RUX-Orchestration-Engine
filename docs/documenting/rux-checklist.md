@@ -6,12 +6,12 @@
 ## Phase 1 — Foundation `+1.5`
 
 ### Legacy Cleanup
-- [ ] DELETE `services/expense_service.py`
-- [ ] DELETE `repositories/expense_repository.py`
-- [ ] DELETE `repositories/budget_repository.py`
-- [ ] DELETE `repositories/project_repositories.py`
-- [ ] REMOVE `get_memory` import from `main.py`
-- [ ] DELETE `memory/memory_manager.py`
+- [X] DELETE `services/expense_service.py`
+- [X] DELETE `repositories/expense_repository.py`
+- [X] DELETE `repositories/budget_repository.py`
+- [X] DELETE `repositories/project_repositories.py`
+- [X] REMOVE `get_memory` import from `main.py`
+- [X] DELETE `memory/memory_manager.py`
 > Run `pytest` after every single deletion. Not at the end. After each one.
 
 ### DB Migration Discipline (Move Earlier)
