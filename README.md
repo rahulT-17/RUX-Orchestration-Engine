@@ -34,6 +34,8 @@ Recent updates focused on production baseline hardening:
 - Per-endpoint rate limiting is active for `/chat`, `/feedback`, and `/debug/*`.
 - Alembic baseline migration is in place, with startup schema-revision guard support.
 
+Current focus is CI migration enforcement, API integration coverage, and runtime extraction cleanup.
+
 ## What RUX Is
 
 Most toy agents look like this:
@@ -224,11 +226,19 @@ $env:ENABLE_SCHEMA_REVISION_GUARD="true"
 
 # Run the API
 python -m uvicorn main:app --reload
+
+# Quick checks
+curl http://127.0.0.1:8000/health
+curl -X POST http://127.0.0.1:8000/chat \
+    -H "Content-Type: application/json" \
+    -H "X-API-Key: your-api-key" \
+    -d '{"user_id":"demo","message":"hello"}'
 ```
 
 ## What Works Now
 
 - planner -> executor -> domain tool flow
+- confirmation flow reuses shared finalization pipeline
 - expense logging and budget enforcement
 - project creation and deletion
 - API key auth on `/chat`, `/feedback`, and `/debug/*`
