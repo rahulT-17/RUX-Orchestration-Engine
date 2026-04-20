@@ -28,6 +28,12 @@ flowchart TD
 
 RUX is under active development and is currently being refactored toward a more modular domain-based architecture.
 
+Recent updates focused on production baseline hardening:
+- API key auth is enforced on write and debug surfaces.
+- Request guardrails now enforce bounded inputs with normalization.
+- Per-endpoint rate limiting is active for `/chat`, `/feedback`, and `/debug/*`.
+- Alembic baseline migration is in place, with startup schema-revision guard support.
+
 ## What RUX Is
 
 Most toy agents look like this:
@@ -107,6 +113,29 @@ Confidence should only surface when there is enough history to justify it. Other
 
 If the Planner and Critic use the same model, the Critic tends to agree with the original reasoning too easily. The idea behind RUX is that critique should be structurally independent, so the second opinion can challenge the first instead of just echoing it.
 
+### 6. Security Baseline Before Scale
+
+Before adding memory, caching, or worker complexity, RUX now applies a baseline security layer directly at the API boundary:
+
+```text
+X-API-Key auth -> blocks unauthenticated access
+input guardrails -> bound and normalize user payloads
+rate limits -> protect LLM and DB from burst abuse
+```
+
+This keeps the runtime stable while architecture work continues.
+
+### 7. Schema Revision Guard at Startup
+
+The app now supports a startup revision guard that verifies the running database revision matches the app's Alembic head.
+
+```text
+DB revision != app revision -> fail fast at startup
+DB revision == app revision -> app starts normally
+```
+
+This avoids silent schema drift between local/dev/prod environments.
+
 ## Core Ideas
 
 - **Trust boundary**: planner output is treated as untrusted until it passes schema validation.
@@ -115,6 +144,8 @@ If the Planner and Critic use the same model, the Critic tends to agree with the
 - **Observable execution**: runs and outcomes are logged for inspection and feedback.
 - **Confidence from history**: confidence is derived from past correctness, not model self-reported certainty.
 - **Critique as a second layer**: decisions can be reviewed independently instead of trusting a single model pass.
+- **Security before scale**: auth, validation, and rate limits are applied before advanced features.
+- **Schema discipline**: Alembic revision alignment is treated as a deployment safety check.
 
 ## Current Domains
 
@@ -127,15 +158,18 @@ If the Planner and Critic use the same model, the Critic tends to agree with the
 ```text
 rux/
 ├── api/                # FastAPI routes
-├── core/               # current runtime layer
+├── core/               # runtime layer (planner/executor/auth/rate-limiter/guards)
 ├── domains/
 │   ├── expense/
 │   └── project/
 ├── repositories/       # shared persistence adapters
 ├── services/           # shared services + some legacy files
 ├── memory/             # legacy memory path, planned for refactor
+├── migrations/         # Alembic migration scripts
 ├── tests/
+├── alembic.ini
 ├── database.py
+├── init_db.py
 ├── models.py
 └── main.py
 ```
@@ -158,7 +192,9 @@ This makes tool execution easier to validate, log, test, and later route cleanly
 - FastAPI
 - SQLAlchemy async ORM
 - PostgreSQL
+- Alembic
 - Pydantic
+- Pytest
 - Local LLM serving via LM Studio
 
 ## Setup
@@ -177,8 +213,14 @@ python -m venv .venv
 # Install dependencies
 python -m pip install -r requirements.txt
 
-# Initialize database tables
-python init_db.py
+# Apply database migrations (recommended)
+alembic upgrade head
+
+# Optional: enable startup schema-revision guard
+$env:ENABLE_SCHEMA_REVISION_GUARD="true"
+
+# Optional fallback for quick local bootstrap
+# python init_db.py
 
 # Run the API
 python -m uvicorn main:app --reload
@@ -189,14 +231,23 @@ python -m uvicorn main:app --reload
 - planner -> executor -> domain tool flow
 - expense logging and budget enforcement
 - project creation and deletion
+- API key auth on `/chat`, `/feedback`, and `/debug/*`
+- input guardrails for bounded and normalized request payloads
+- per-endpoint in-memory rate limiting with `429 + Retry-After`
+- standardized `X-RateLimit-*` headers on throttled responses
+- Alembic baseline revision + startup schema-revision safety guard
+- health endpoint for deploy/runtime probing (`GET /health`)
 - database-backed persistence
 - execution logging and feedback-oriented infrastructure
 - smoke tests for expense and project tool adapters
 
 ## Roadmap
 
-- [ ] Make the executor consume `ToolResponse` end-to-end
-- [ ] Unify confirmed actions with the normal execution pipeline
+- [ ] Add CI gate for migration drift (fail when models change without migration)
+- [ ] Add integration tests for `/chat`, `/feedback`, and `/debug/*`
+- [ ] Add global API exception handling for cleaner failure paths
+- [ ] Harden LLM timeout/error fallback behavior for `/chat`
+- [ ] Continue runtime extraction (`action_catalog`, cleaner composition root)
 - [ ] Remove legacy duplicated service/repository files
 - [ ] Build hybrid memory: short-term, episodic, semantic retrieval
 - [ ] Add a knowledge layer for reusable facts, concepts, and sources
@@ -210,4 +261,4 @@ The goal is not to build another chatbot wrapper. The goal is to build the runti
 
 ---
 
-*Built as a learning project. Actively evolving.*
+*Built as a learning-first engineering project. Actively evolving.*
