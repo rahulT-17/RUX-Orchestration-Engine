@@ -17,7 +17,7 @@
 ### DB Migration Discipline (Move Earlier)
 - [X] Introduce Alembic and create a baseline revision from current schema
 - [X] Every model change requires migration + downgrade path
-- [] Add CI check: fail if ORM model changes ship without migration file
+- [X] Add CI check: fail if ORM model changes ship without migration file
 - [X] Add startup guard: app revision must match DB revision
 
 ### Security Baseline (Before Memory) 
@@ -162,8 +162,8 @@
 | Step | Gate | Status
 |------|------|
 | Legacy cleanup | `pytest` passes after every deletion |
-| DB migrations | Alembic revision + model schema are in sync in CI | mostly DONE CI enforcement is pending 
-| Security baseline | API key + rate limit + secret hygiene completed | PARTIAL ()
+| DB migrations | Alembic revision + model schema are in sync in CI | mostly DONE 
+| Security baseline | API key + rate limit + secret hygiene completed | DONE
 | Runtime extraction | Full orchestrator flow works end to end |
 | Observability | Zero manual log calls in executor |
 | Planner eval | 85%+ pass rate measured, not estimated |
