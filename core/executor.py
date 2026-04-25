@@ -101,7 +101,12 @@ class Executor:
             validated,
             parameters,
         )
+        
+        result.metadata = result.metadata or {}
+        if getattr(state, "timings_ms", None):
+            result.metadata["stage_timings_ms"] = dict(state.timings_ms)
 
+        result_payload = result.to_dict()
         # Persist the normalized result as the durable audit trail for this run.
         agentrun_repo = AgentRunRepository(db)
         run_id = await agentrun_repo.log_run(
@@ -109,7 +114,7 @@ class Executor:
             message=effective_message,
             action=action_name,
             parameters=parameters,
-            result=result.to_dict(),
+            result=result_payload,
             latency=result.latency_ms or 0.0,
         )
 
@@ -146,6 +151,7 @@ class Executor:
         response = self._build_response(result, analysis, confidence)
         return {"run_id": run_id, "response": response}
 
+    # Execution begins :
     async def execute(self, state, db):
         state.set_stage("EXECUTING")
 
