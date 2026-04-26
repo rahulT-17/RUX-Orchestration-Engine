@@ -19,7 +19,7 @@ def test_critic_skips_successful_read_only_analyze():
 
 async def _test_critic_skips_successful_read_only_analyze():
     critic = DummyCriticService()
-    engine = DecisionEngine(critic)
+    engine = DecisionEngine(critic, critic_non_blocking=False)
 
     result = ToolResponse(
         status=ToolStatus.SUCCESS,
@@ -45,7 +45,7 @@ def test_critic_runs_for_failed_action():
 
 async def _test_critic_runs_for_failed_action():
     critic = DummyCriticService()
-    engine = DecisionEngine(critic)
+    engine = DecisionEngine(critic, critic_non_blocking=False)
 
     result = ToolResponse(
         status=ToolStatus.FAILED,
@@ -71,7 +71,7 @@ def test_critic_runs_for_successful_high_risk_delete():
 
 async def _test_critic_runs_for_successful_high_risk_delete():
     critic = DummyCriticService()
-    engine = DecisionEngine(critic)
+    engine = DecisionEngine(critic, critic_non_blocking=False)
 
     result = ToolResponse(
         status=ToolStatus.SUCCESS,

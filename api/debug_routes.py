@@ -1,7 +1,7 @@
 # api / debug_routes.py : This file is used for defining debug routes for testing and debugging purposes.
 # These routes are not meant for production use and should be used with caution.
 
-from fastapi import APIRouter , Depends, Request, Response
+from fastapi import APIRouter , Depends, HTTPException, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -48,6 +48,41 @@ async def get_recent_runs(limit: int = 20, db: AsyncSession = Depends(get_db)):
     runs = result.scalars().all() # scalars() is used to extract the AgentRun objects from the result set, and all() retrieves them as a list.
 
     return runs 
+
+
+@router.get("/critic_result/{run_id}")
+async def get_critic_background_result(
+    run_id: int,
+    user_id: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Retrieve persisted background critic status/result for a specific run."""
+
+    query = select(AgentRun).where(AgentRun.run_id == run_id)
+    if user_id:
+        query = query.where(AgentRun.user_id == user_id)
+
+    result = await db.execute(query)
+    run = result.scalar_one_or_none()
+
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    payload = run.result if isinstance(run.result, dict) else {}
+    metadata = payload.get("metadata") if isinstance(payload, dict) else {}
+    if not isinstance(metadata, dict):
+        metadata = {}
+
+    return {
+        "run_id": run.run_id,
+        "user_id": run.user_id,
+        "critic_mode": metadata.get("critic_mode"),
+        "critic_background_status": metadata.get("critic_background_status"),
+        "critic_background_result": metadata.get("critic_background_result"),
+        "critic_background_error": metadata.get("critic_background_error"),
+        "critic_background_latency_ms": metadata.get("critic_background_latency_ms"),
+        "critic_background_completed_at": metadata.get("critic_background_completed_at"),
+    }
 
 @router.get("/slow_runs")
 async def get_slow_runs( db: AsyncSession = Depends(get_db)):

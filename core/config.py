@@ -8,6 +8,11 @@ PLANNER_MODEL = os.getenv("PLANNER_MODEL", "qwen/qwen3-vl-4b")
 CRITIC_MODEL = os.getenv("CRITIC_MODEL", "mistralai/mistral-7b-instruct-v0.3")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
+# Critic execution mode:
+# false -> inline (blocks request until critique completes)
+# true  -> background (does not block request latency)
+CRITIC_NON_BLOCKING = os.getenv("CRITIC_NON_BLOCKING", "true").lower() == "false"
+
 # adding security realted configuration keys :
 
 # Security and Rate Limiting Configurations:

@@ -5,6 +5,7 @@
 # -> tool execution -> domain/task classification -> logging/outcomes
 # -> decision analysis -> confidence lookup -> final user response
 
+import logging
 import time
 
 from core.tool_response import ToolResponse, ToolStatus
@@ -13,6 +14,8 @@ from repositories.agent_run_repository import AgentRunRepository
 from repositories.agent_outcomes_repository import AgentOutcomesRepository
 from services.confidence_service import ConfidenceService
 from services.decision_engine import DecisionEngine
+
+logger = logging.getLogger(__name__)
 
 
 class Executor:
@@ -59,7 +62,9 @@ class Executor:
         if analysis["system_analysis"]:
             response += f"\n\nObservation:\n{analysis['system_analysis']}"
 
-        if analysis["critic_analysis"]:
+        if analysis.get("critic_mode") == "background":
+            response += "\n\nSecond Opinion: queued in background (non-blocking)."
+        elif analysis["critic_analysis"]:
             response += f"\n\nSecond Opinion:\n{analysis['critic_analysis']}"
 
         if confidence["confidence"] is None:
@@ -86,6 +91,11 @@ class Executor:
         result: ToolResponse,
         execution_message: str | None = None,
     ):
+        finalize_start = time.perf_counter()
+        execution_substages = {
+            "tool_call_ms": round(result.latency_ms or 0.0, 2),
+        }
+
         # The normalized tool result is now part of runtime state and can be reused
         # by later stages if needed.
         state.tool_result = result
@@ -109,6 +119,7 @@ class Executor:
         result_payload = result.to_dict()
         # Persist the normalized result as the durable audit trail for this run.
         agentrun_repo = AgentRunRepository(db)
+        run_log_start = time.perf_counter()
         run_id = await agentrun_repo.log_run(
             user_id=state.user_id,
             message=effective_message,
@@ -117,12 +128,14 @@ class Executor:
             result=result_payload,
             latency=result.latency_ms or 0.0,
         )
+        execution_substages["run_log_ms"] = round((time.perf_counter() - run_log_start) * 1000, 2)
 
         # Record the first correctness signal. This is still heuristic and can
         # later be corrected by explicit user feedback.
         auto_correct = self._should_auto_mark_correct(result, domain, task_type)
 
         outcome_repo = AgentOutcomesRepository(db)
+        outcome_start = time.perf_counter()
         await outcome_repo.record_outcome(
             run_id=run_id,
             user_id=state.user_id,
@@ -130,25 +143,54 @@ class Executor:
             task_type=task_type,
             was_correct=auto_correct,
         )
+        execution_substages["outcome_log_ms"] = round((time.perf_counter() - outcome_start) * 1000, 2)
 
         # Pass the normalized ToolResponse straight into the decision layer so
         # post-execution reasoning uses the same contract as the rest of runtime.
+        decision_start = time.perf_counter()
         analysis = await self.decision_engine.evaluate(
             state.user_id,
             effective_message,
             domain,
             task_type,
             result,
+            run_id=run_id,
         )
+        execution_substages["decision_engine_ms"] = round((time.perf_counter() - decision_start) * 1000, 2)
+        execution_substages["critic_ms"] = round(float(analysis.get("critic_ms", 0.0)), 2)
+        result.metadata["critic_mode"] = analysis.get("critic_mode", "skipped")
 
         confidence_service = ConfidenceService(db)
+        confidence_start = time.perf_counter()
         confidence = await confidence_service.get_confidence(
             state.user_id,
             domain,
             task_type,
         )
+        execution_substages["confidence_ms"] = round((time.perf_counter() - confidence_start) * 1000, 2)
 
+        response_start = time.perf_counter()
         response = self._build_response(result, analysis, confidence)
+        execution_substages["response_build_ms"] = round((time.perf_counter() - response_start) * 1000, 2)
+        execution_substages["finalize_ms"] = round((time.perf_counter() - finalize_start) * 1000, 2)
+
+        result.metadata["execution_substages_ms"] = execution_substages
+        if getattr(state, "timings_ms", None) is not None:
+            state.timings_ms["finalize_ms"] = execution_substages["finalize_ms"]
+
+        # Run row already exists (needed for outcomes), so patch enriched metadata now.
+        try:
+            await agentrun_repo.merge_run_metadata(run_id, result.metadata)
+        except Exception:
+            logger.exception("Failed to patch run.result metadata run_id=%s", run_id)
+
+        logger.info(
+            "execution_substages trace_id=%s run_id=%s substages=%s",
+            getattr(state, "trace_id", "n/a"),
+            run_id,
+            execution_substages,
+        )
+
         return {"run_id": run_id, "response": response}
 
     # Execution begins :
