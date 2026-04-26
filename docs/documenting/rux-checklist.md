@@ -27,14 +27,14 @@
 - [X] Input guardrails: max message length + basic sanitization
 
 ### Latency Fixes
-- [ ] Add per-step timing logs — find exact bottleneck first
+- [X] Add per-step timing logs — find exact bottleneck first
 - [ ] Shrink planner prompt to under 300 tokens
 - [ ] Switch to Groq free tier or OpenAI API — target under 3s total
 - [ ] Stream planner response to eliminate perceived wait time
 
 ### SLOs (Track Before Optimizing)
-- [ ] Define p95 latency targets (`/chat` no-critic and critic-enabled)
-- [ ] Define 5xx error budget target (rolling 7-day window)
+- [X] Define p95 latency targets (`/chat` no-critic and critic-enabled)
+- [X] Define 5xx error budget target (rolling 7-day window)
 - [ ] Add p50/p95 stage timings (planner, executor, db, critic)
 - [ ] Do before/after measurement for every latency change
 
@@ -172,7 +172,7 @@
 | Worker queue | Critic/background jobs run out-of-band with retries + visibility |
 | Cache layer | Read-path cache hit rate and invalidation policy validated |
 | Memory layer | Context retrieved from 3 sessions ago without being in current prompt |
-| SLO tracking | p95 latency + 5xx error budget tracked and within target |
+| SLO tracking | p95 latency + 5xx error budget tracked and within target | IN PROGRESS (targets defined, baselines captured, currently above p95 target) |
 | Docker | Someone clones repo, runs `docker-compose up`, RUX works |
 | Demo | Someone who has never seen RUX understands it in 2 minutes |
 
