@@ -1,6 +1,21 @@
 # Latency Baseline Report
 
-Last Updated: 2026-04-26
+Last Updated: 2026-05-01
+
+## Latest Metrics Snapshot
+
+| Path | p50 | p95 | Notes |
+|---|---:|---:|---|
+| Planner (Groq) | ~2.0s | ~3.0s | Latest planner_ms improvement |
+| Analyze (no critic) | ~6.2s | ~11.4s | Stable control path |
+| Critic inline | ~60.0s | ~68.6s | Blocking critic is still slow |
+| Critic background | ~24.8s | ~27.6s | Non-blocking, persisted async result |
+
+Short takeaway:
+
+- Best user-facing latency is now the Groq planner path at about 2 to 3 seconds.
+- Background critic is much faster than inline critic, but still above target.
+- The main remaining gap is planner and execution latency, not persistence.
 
 ## Scope
 
