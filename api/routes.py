@@ -6,7 +6,8 @@ from pydantic import BaseModel, Field, field_validator
 
 # config 
 from core.config import (
-    LM_STUDIO_URL,
+    LLM_BASE_URL,
+    LLM_API_KEY, 
     PLANNER_MODEL,
     CRITIC_MODEL,
     MAX_MESSAGE_LENGTH,
@@ -66,8 +67,8 @@ router = APIRouter(tags=["chat"]) # This tag is used for documentation purposes;
 
 
 # Initializing the LLM services for the planner and critic using the configuration variables defined in core/config.py :
-planner_llm  = LLMService(LM_STUDIO_URL, PLANNER_MODEL)  # LLM service instance for the planner
-critic_llm = LLMService(LM_STUDIO_URL, CRITIC_MODEL)
+planner_llm  = LLMService(LLM_BASE_URL, PLANNER_MODEL, api_key=LLM_API_KEY)  # LLM service instance for the planner
+critic_llm = LLMService(LLM_BASE_URL, CRITIC_MODEL, api_key=LLM_API_KEY)
 
 critic_service = CriticService(critic_llm) # Critic service instance that uses the critic LLM for evaluating plans and actions
 planner = Planner(planner_llm)  # Planner instance that uses the planner LLM service
