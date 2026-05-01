@@ -3,7 +3,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# groq setup
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "groq")
+
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_BASE_URL = os.getenv("GROQ_BASE_URL",  "https://api.groq.com/openai")
+
 LM_STUDIO_URL = os.getenv("LM_STUDIO_URL", "http://127.0.0.1:1234")
+
+if LLM_PROVIDER == "groq":
+    LLM_BASE_URL = GROQ_BASE_URL
+    LLM_API_KEY = GROQ_API_KEY
+else:
+    LLM_BASE_URL = LM_STUDIO_URL
+    LLM_API_KEY = None
+    
 PLANNER_MODEL = os.getenv("PLANNER_MODEL", "qwen/qwen3-vl-4b")
 CRITIC_MODEL = os.getenv("CRITIC_MODEL", "mistralai/mistral-7b-instruct-v0.3")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
@@ -11,7 +25,7 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 # Critic execution mode:
 # false -> inline (blocks request until critique completes)
 # true  -> background (does not block request latency)
-CRITIC_NON_BLOCKING = os.getenv("CRITIC_NON_BLOCKING", "true").lower() == "false"
+CRITIC_NON_BLOCKING = os.getenv("CRITIC_NON_BLOCKING", "false").lower() == "true"
 
 # adding security realted configuration keys :
 
