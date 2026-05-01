@@ -2,6 +2,30 @@
 
 > A local AI orchestration backend that turns natural language into safe, persistent state changes with validation, observability, feedback, and critique.
 
+## What RUX Is
+
+Most toy agents look like this:
+
+```text
+LLM -> tool -> response
+```
+
+RUX is built around a stronger runtime contract:
+
+```text
+User
+ -> Planner
+ -> Executor (trust boundary)
+ -> Tool Adapter
+ -> Domain Service
+ -> Repository
+ -> PostgreSQL
+ -> Observability / Outcome Tracking / Critique / Confidence
+ -> Final Response
+```
+
+The core idea is simple: the LLM is not trusted. Anything before the executor is probabilistic. Anything after schema validation is expected to be deterministic, auditable, and safe to reason about.
+
 ## Architecture Snapshot
 
 ![RUX architecture](demo/RUX_Architecture.png)
@@ -28,13 +52,11 @@ flowchart TD
 
 RUX is under active development and is currently being refactored toward a more modular domain-based architecture.
 
-Recent updates focused on production baseline hardening:
-- API key auth is enforced on write and debug surfaces.
-- Request guardrails now enforce bounded inputs with normalization.
-- Per-endpoint rate limiting is active for `/chat`, `/feedback`, and `/debug/*`.
-- Alembic baseline migration is in place, with startup schema-revision guard support.
-
-Current focus is CI migration enforcement, API integration coverage, and runtime extraction cleanup.
+Current Focus : 
+- SLO validation
+- Planner eval
+- Runtime extraction
+- Production hardening
 
 If you are reviewing this repo quickly, current proof points are:
 - trust boundary + schema validation before tool execution
@@ -42,29 +64,26 @@ If you are reviewing this repo quickly, current proof points are:
 - migration baseline with optional startup revision guard
 - persisted run/outcome/feedback data for observability and confidence
 
-## What RUX Is
+## Benchmarks & Latency (current)
 
-Most toy agents look like this:
+- Planner (Groq hosted): p50 ≈ 2s, p95 ≈ ~3s (depends on model and network)
+- Analyze (no critic): p50 ≈ 6s (local baseline), improved when planner on Groq
+- Log / Set Budget: higher when critic runs inline; use `CRITIC_NON_BLOCKING=true` for production latency
 
-```text
-LLM -> tool -> response
+These numbers are reproducible with the included benchmark script in `scripts/benchmark.ps1` (see "Running Benchmarks" below).
+
+## Running Benchmarks
+
+Quick PowerShell benchmark that captures X-Process-Time-ms headers and run IDs. Place the file `scripts/benchmark.ps1` and run in PowerShell with your `X-API-Key` set.
+
+Example (manual):
+
+```powershell
+$h=@{"x-api-key"="dev-key-change-in-production"}
+#$body = @{user_id="rahul"; message="analyze food this month"} | ConvertTo-Json -Compress
+#$r = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:8000/chat" -Method Post -Headers $h -ContentType "application/json" -Body $body
+##$r.Headers["X-Process-Time-ms"]
 ```
-
-RUX is built around a stronger runtime contract:
-
-```text
-User
- -> Planner
- -> Executor (trust boundary)
- -> Tool Adapter
- -> Domain Service
- -> Repository
- -> PostgreSQL
- -> Observability / Outcome Tracking / Critique / Confidence
- -> Final Response
-```
-
-The core idea is simple: the LLM is not trusted. Anything before the executor is probabilistic. Anything after schema validation is expected to be deterministic, auditable, and safe to reason about.
 
 ## Key Design Decisions
 
@@ -205,6 +224,16 @@ This makes tool execution easier to validate, log, test, and later route cleanly
 - Pytest
 - Local LLM serving via LM Studio
 
+## Environment & Security (important)
+
+- Required env vars (minimum):
+    - `API_KEY` — app API key for `X-API-Key` header (development default provided)
+    - `LLM_PROVIDER` — `groq` or `lmstudio`
+    - `GROQ_API_KEY` — Groq bearer token (do not commit)
+    - `GROQ_BASE_URL` — `https://api.groq.com/openai`
+    - `PLANNER_MODEL`, `CRITIC_MODEL` — exact model ids from `/models`
+    - `CRITIC_NON_BLOCKING` — `true` to enqueue critic in background
+
 ## Setup
 
 ```bash
@@ -271,6 +300,13 @@ curl.exe -H "X-API-Key: your-api-key" "http://127.0.0.1:8000/debug/confidence?us
 - database-backed persistence
 - execution logging and feedback-oriented infrastructure
 - smoke tests for expense and project tool adapters
+
+## Observability & Debugging
+
+- Use `/debug/runs` to list recent runs and inspect `result.metadata.stage_timings_ms` for `planning_ms`.
+- Use `/debug/critic_result/{run_id}` to inspect background critic status and result.
+- For slow-run breakdowns, inspect `result.metadata.execution_substages_ms` to see `tool_call_ms`, `decision_engine_ms`, `confidence_ms`, and `finalize_ms`.
+- When troubleshooting LLM provider issues, test directly with the provider's `/models` and `/chat/completions` endpoints using the same `GROQ_API_KEY` in your shell.
 
 ## Roadmap
 
