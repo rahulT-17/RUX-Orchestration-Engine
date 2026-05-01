@@ -28,15 +28,28 @@
 
 ### Latency Fixes
 - [X] Add per-step timing logs — find exact bottleneck first
-- [ ] Shrink planner prompt to under 300 tokens
-- [ ] Switch to Groq free tier or OpenAI API — target under 3s total
-- [ ] Stream planner response to eliminate perceived wait time
+- [x] Shrink planner prompt to under 300 tokens
+- [x] Switch to Groq free tier or OpenAI API — target under 3s total
+- [x] Stream planner response to eliminate perceived wait time
 
 ### SLOs (Track Before Optimizing)
 - [X] Define p95 latency targets (`/chat` no-critic and critic-enabled)
 - [X] Define 5xx error budget target (rolling 7-day window)
-- [ ] Add p50/p95 stage timings (planner, executor, db, critic)
-- [ ] Do before/after measurement for every latency change
+- [x] Add p50/p95 stage timings (planner, executor, db, critic)
+- [x] Do before/after measurement for every latency change
+
+-> *Production hardening checklist (MVP)* :
+- [x] Rotate keys (done)
+- [] Move keys to a secrets manager, not .env in repo.
+- [] Add robust error handling in LLMService:
+- [] Check HTTP status, map 401/429/5xx to clear errors.
+- [] Retry with backoff on transient errors, but cap retries.
+- [] Circuit breaker / fallback model (smaller model or cached reply).
+- [] Validate model list at startup (fail fast if configured model missing).
+- [] Log request id (x_groq / req_id) with run_id for traceability.
+- [] Add timeouts and graceful degradation (planner timeout conversational fallback).
+- [] Rate-limit downstream calls and add per-user quotas.
+- [] Cache frequent “analyze” results where valid.
 
 ### Runtime Extraction
 - [ ] Create `runtime/` with locked folder structure
