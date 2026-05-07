@@ -30,7 +30,6 @@ The core idea is simple: the LLM is not trusted. Anything before the executor is
 
 ![RUX architecture](demo/RUX_Architecture.png)
 
-
 ```mermaid
 flowchart TD
     U["User Message"] --> P["Planner"]
@@ -52,29 +51,35 @@ flowchart TD
 
 RUX is under active development and is currently being refactored toward a more modular domain-based architecture.
 
-Current Focus : 
+Current Focus:
 - SLO validation
 - Planner eval
 - Runtime extraction
 - Production hardening
+
+Recent achievements:
+- Groq planner integration is in place.
+- Non-blocking critic persistence is in place.
+- Stage-level timing and p50/p95 benchmarks are captured.
 
 If you are reviewing this repo quickly, current proof points are:
 - trust boundary + schema validation before tool execution
 - auth + guardrails + per-endpoint rate limiting at API layer
 - migration baseline with optional startup revision guard
 - persisted run/outcome/feedback data for observability and confidence
+- Groq-hosted planner with persisted latency metrics
 
 ## Benchmarks & Latency (current)
 
-- Planner (Groq hosted): p50 ≈ 2s, p95 ≈ ~3s (depends on model and network)
-- Analyze (no critic): p50 ≈ 6s (local baseline), improved when planner on Groq
-- Log / Set Budget: higher when critic runs inline; use `CRITIC_NON_BLOCKING=true` for production latency
+- Planner (Groq hosted): p50 ≈ 2s, p95 ≈ ~3s on the latest benchmark set.
+- Analyze (no critic): p50 ≈ 6.2s, p95 ≈ 11.4s; this is the current control path.
+- Critic background keeps user-facing responses non-blocking at about 24.8s p50 / 27.6s p95.
 
-These numbers are reproducible with the included benchmark script in `scripts/benchmark.ps1` (see "Running Benchmarks" below).
+These numbers are reproducible with `scripts/benchmark.ps1` and the persisted run metadata (see "Running Benchmarks" below).
 
 ## Running Benchmarks
 
-Quick PowerShell benchmark that captures X-Process-Time-ms headers and run IDs. Place the file `scripts/benchmark.ps1` and run in PowerShell with your `X-API-Key` set.
+Quick PowerShell benchmark that captures `X-Process-Time-ms`, run IDs, and stage timings so you can compare p50/p95 before and after changes. Run it in PowerShell with your `X-API-Key` set.
 
 Example (manual):
 
@@ -222,7 +227,7 @@ This makes tool execution easier to validate, log, test, and later route cleanly
 - Alembic
 - Pydantic
 - Pytest
-- Local LLM serving via LM Studio
+- Groq/OpenAI-compatible LLM provider with LM Studio fallback
 
 ## Environment & Security (important)
 
@@ -288,6 +293,9 @@ curl.exe -H "X-API-Key: your-api-key" "http://127.0.0.1:8000/debug/confidence?us
 ## What Works Now
 
 - planner -> executor -> domain tool flow
+- Groq-hosted planner integration with prompt compaction
+- non-blocking critic persistence with debug retrieval
+- stage timing logs and persisted run metadata for p50/p95 analysis
 - confirmation flow reuses shared finalization pipeline
 - expense logging and budget enforcement
 - project creation and deletion
@@ -299,6 +307,7 @@ curl.exe -H "X-API-Key: your-api-key" "http://127.0.0.1:8000/debug/confidence?us
 - health endpoint for deploy/runtime probing (`GET /health`)
 - database-backed persistence
 - execution logging and feedback-oriented infrastructure
+- benchmark harness for latency measurement
 - smoke tests for expense and project tool adapters
 
 ## Observability & Debugging
